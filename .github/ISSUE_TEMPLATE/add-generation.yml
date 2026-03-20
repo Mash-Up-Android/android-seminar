@@ -1,0 +1,13 @@
+name: 기수 추가
+description: 새로운 기수를 세미나 등록 목록에 추가합니다
+title: "[기수 추가] "
+labels: ["add-generation"]
+body:
+  - type: input
+    id: generation
+    attributes:
+      label: 기수명
+      description: 추가할 기수명을 입력해주세요 (예: 17기)
+      placeholder: 17기
+    validations:
+      required: true

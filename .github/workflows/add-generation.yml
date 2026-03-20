@@ -1,0 +1,121 @@
+name: 기수 추가
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  add-generation:
+    if: contains(github.event.issue.labels.*.name, 'add-generation')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Parse issue and update template
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          cat << 'PYEOF' > /tmp/add_generation.py
+          import os
+          import re
+
+          body = os.environ['ISSUE_BODY']
+
+          # Parse generation name
+          sections = {}
+          parts = re.split(r'### ', body)
+          for part in parts[1:]:
+              lines = part.strip().split('\n')
+              key = lines[0].strip()
+              value = '\n'.join(lines[1:]).strip()
+              sections[key] = value
+
+          new_generation = sections.get('기수명', '').strip()
+
+          if not new_generation:
+              print('❌ 기수명이 입력되지 않았습니다.')
+              exit(1)
+
+          if not re.match(r'^\d+기$', new_generation):
+              print(f'❌ 올바른 기수 형식이 아닙니다: {new_generation} (예: 17기)')
+              exit(1)
+
+          template_path = '.github/ISSUE_TEMPLATE/seminar.yml'
+
+          with open(template_path, 'r', encoding='utf-8') as f:
+              content = f.read()
+
+          if f'"{new_generation}"' in content:
+              print(f'❌ 이미 존재하는 기수입니다: {new_generation}')
+              exit(1)
+
+          # Find the last option line and insert new generation after it
+          lines = content.split('\n')
+          last_option_idx = -1
+          for i, line in enumerate(lines):
+              if line.strip().startswith('- "') and '기' in line:
+                  last_option_idx = i
+
+          if last_option_idx == -1:
+              print('❌ options 섹션을 찾을 수 없습니다.')
+              exit(1)
+
+          indent = ' ' * (len(lines[last_option_idx]) - len(lines[last_option_idx].lstrip()))
+          lines.insert(last_option_idx + 1, f'{indent}- "{new_generation}"')
+
+          with open(template_path, 'w', encoding='utf-8') as f:
+              f.write('\n'.join(lines))
+
+          print(f'✅ {new_generation} 추가 완료')
+          PYEOF
+          python3 /tmp/add_generation.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .github/ISSUE_TEMPLATE/seminar.yml
+          git commit -m "chore: ${{ github.event.issue.title }} (#${{ github.event.issue.number }})"
+          git push
+
+      - name: Comment on issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const generation = context.payload.issue.body.match(/### 기수명\s*\n\s*(.+)/)?.[1]?.trim() ?? ''
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `✅ **${generation}** 이 세미나 등록 목록에 추가되었습니다!\n\n이제 ${generation} 팀원들이 세미나 자료를 등록할 수 있습니다.`
+            })
+
+      - name: Close issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed'
+            })
+
+      - name: Comment on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '❌ 기수 추가 중 오류가 발생했습니다.\n\n기수명 형식을 확인해주세요. (예: 17기)'
+            })
