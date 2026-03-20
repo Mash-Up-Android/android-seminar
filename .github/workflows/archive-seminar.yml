@@ -67,6 +67,8 @@ jobs:
           if is_new_generation:
               with open(gen_readme, 'w', encoding='utf-8') as f:
                   f.write(f'# {generation} 세미나 아카이브\n\n')
+                  f.write('[← 전체 목록으로 돌아가기](../README.md)\n\n')
+                  f.write('<br>\n\n')
                   f.write('| 이름 | 주제 | 자료 |\n')
                   f.write('|------|------|------|\n')
 
