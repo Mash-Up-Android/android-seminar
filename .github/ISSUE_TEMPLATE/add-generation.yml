@@ -7,7 +7,7 @@ body:
     id: generation
     attributes:
       label: 기수명
-      description: 추가할 기수명을 입력해주세요 (예: 17기)
+      description: "추가할 기수명을 입력해주세요 (예: 17기)"
       placeholder: 17기
     validations:
       required: true
