@@ -1,0 +1,42 @@
+name: 세미나 자료 등록
+description: Mash-Up Android 세미나 자료를 등록합니다
+title: "[세미나] "
+labels: ["create-seminar"]
+body:
+  - type: dropdown
+    id: generation
+    attributes:
+      label: 기수
+      description: 활동 기수를 선택해주세요
+      options:
+        - "16기"
+      default: 0
+    validations:
+      required: true
+
+  - type: input
+    id: name
+    attributes:
+      label: 이름
+      placeholder: 홍길동
+    validations:
+      required: true
+
+  - type: input
+    id: topic
+    attributes:
+      label: 주제
+      placeholder: 세미나 주제를 입력해주세요
+    validations:
+      required: true
+
+  - type: textarea
+    id: material
+    attributes:
+      label: 자료
+      description: |
+        PDF 파일, 블로그 링크, 노션 링크 등 자유롭게 등록해주세요.
+        파일은 이 창에 드래그앤드롭으로 첨부할 수 있습니다.
+      placeholder: "https:// 또는 파일 첨부"
+    validations:
+      required: true

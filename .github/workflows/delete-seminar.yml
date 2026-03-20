@@ -1,0 +1,131 @@
+name: 세미나 자료 삭제
+
+on:
+  issues:
+    types: [labeled]
+
+jobs:
+  delete:
+    if: github.event.label.name == 'delete-seminar'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Parse issue and delete entry
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          cat << 'PYEOF' > /tmp/delete.py
+          import os
+          import re
+          import shutil
+
+          body = os.environ['ISSUE_BODY']
+
+          # Parse sections
+          sections = {}
+          parts = re.split(r'### ', body)
+          for part in parts[1:]:
+              lines = part.strip().split('\n')
+              key = lines[0].strip()
+              value = '\n'.join(lines[1:]).strip()
+              sections[key] = value
+
+          generation = sections.get('기수', '').strip()
+          name = sections.get('이름', '').strip()
+          topic = sections.get('주제', '').strip()
+
+          if not all([generation, name, topic]):
+              print('❌ 필수 항목(기수, 이름, 주제)이 누락되었습니다.')
+              exit(1)
+
+          gen_dir = generation
+          gen_readme = f'{gen_dir}/README.md'
+          main_readme = 'README.md'
+
+          if not os.path.exists(gen_readme):
+              print(f'❌ {gen_readme} 파일을 찾을 수 없습니다.')
+              exit(1)
+
+          with open(gen_readme, 'r', encoding='utf-8') as f:
+              lines = f.readlines()
+
+          new_lines = []
+          removed = False
+          for line in lines:
+              if (not removed
+                      and line.startswith('|')
+                      and f'| {name} |' in line
+                      and f'| {topic} |' in line):
+                  removed = True
+                  continue
+              new_lines.append(line)
+
+          if not removed:
+              print(f'❌ 해당 자료를 찾을 수 없습니다: {name} - {topic}')
+              exit(1)
+
+          # Check if any data rows remain (excluding header and separator)
+          data_rows = [
+              l for l in new_lines
+              if l.startswith('|') and '---' not in l and '이름' not in l
+          ]
+
+          if not data_rows:
+              # Remove generation folder and its link from main README
+              shutil.rmtree(gen_dir)
+
+              with open(main_readme, 'r', encoding='utf-8') as f:
+                  main_lines = f.readlines()
+
+              main_lines = [l for l in main_lines if f'./{gen_dir}/README.md' not in l]
+
+              with open(main_readme, 'w', encoding='utf-8') as f:
+                  f.writelines(main_lines)
+
+              print(f'🗑️ {generation} 세미나 아카이브가 비어 기수 폴더를 삭제했습니다.')
+          else:
+              with open(gen_readme, 'w', encoding='utf-8') as f:
+                  f.writelines(new_lines)
+
+          print(f'✅ {generation} - {name} - {topic} 삭제 완료')
+          PYEOF
+          python3 /tmp/delete.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "docs: ${{ github.event.issue.title }} 세미나 자료 삭제 (#${{ github.event.issue.number }})"
+          git push
+
+      - name: Comment on issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '🗑️ 세미나 자료가 아카이브에서 삭제되었습니다.'
+            })
+
+      - name: Comment on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '❌ 세미나 자료 삭제 중 오류가 발생했습니다. 이슈 내용 및 아카이브 상태를 확인해주세요.'
+            })

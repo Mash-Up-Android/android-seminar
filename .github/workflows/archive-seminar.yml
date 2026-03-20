@@ -1,0 +1,143 @@
+name: 세미나 자료 아카이빙
+
+on:
+  issues:
+    types: [opened]
+
+jobs:
+  archive:
+    if: contains(github.event.issue.labels.*.name, 'create-seminar')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      issues: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Parse issue and update README
+        env:
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          cat << 'PYEOF' > /tmp/archive.py
+          import os
+          import re
+
+          body = os.environ['ISSUE_BODY']
+
+          # Parse sections
+          sections = {}
+          parts = re.split(r'### ', body)
+          for part in parts[1:]:
+              lines = part.strip().split('\n')
+              key = lines[0].strip()
+              value = '\n'.join(lines[1:]).strip()
+              sections[key] = value
+
+          generation = sections.get('기수', '').strip()
+          name = sections.get('이름', '').strip()
+          topic = sections.get('주제', '').strip()
+          material = sections.get('자료', '').strip()
+
+          if not all([generation, name, topic, material]):
+              print('❌ 필수 항목이 누락되었습니다.')
+              exit(1)
+
+          # Format material as link(s)
+          material_lines = [l.strip() for l in material.split('\n') if l.strip()]
+          formatted_parts = []
+          for line in material_lines:
+              if re.match(r'^https?://', line):
+                  formatted_parts.append(f'[자료 보기]({line})')
+              else:
+                  formatted_parts.append(line)
+          material_cell = ' / '.join(formatted_parts) if formatted_parts else material
+
+          gen_dir = generation
+          gen_readme = f'{gen_dir}/README.md'
+          main_readme = 'README.md'
+
+          os.makedirs(gen_dir, exist_ok=True)
+
+          is_new_generation = not os.path.exists(gen_readme)
+
+          if is_new_generation:
+              with open(gen_readme, 'w', encoding='utf-8') as f:
+                  f.write(f'# {generation} 세미나 아카이브\n\n')
+                  f.write('| 이름 | 주제 | 자료 |\n')
+                  f.write('|------|------|------|\n')
+
+          # Append row
+          with open(gen_readme, 'a', encoding='utf-8') as f:
+              f.write(f'| {name} | {topic} | {material_cell} |\n')
+
+          # Update main README if new generation
+          if is_new_generation:
+              with open(main_readme, 'r', encoding='utf-8') as f:
+                  lines = f.readlines()
+
+              new_row = f'| {generation} | [{generation} 세미나 보기](./{gen_dir}/README.md) |\n'
+
+              last_table_idx = -1
+              for i, line in enumerate(lines):
+                  if line.startswith('|'):
+                      last_table_idx = i
+
+              if last_table_idx >= 0:
+                  lines.insert(last_table_idx + 1, new_row)
+              else:
+                  lines.append(new_row)
+
+              with open(main_readme, 'w', encoding='utf-8') as f:
+                  f.writelines(lines)
+
+          print(f'✅ {generation} - {name} - {topic} 등록 완료')
+          PYEOF
+          python3 /tmp/archive.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add .
+          git commit -m "docs: ${{ github.event.issue.title }} (#${{ github.event.issue.number }})"
+          git push
+
+      - name: Comment on issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const generation = context.payload.issue.body.match(/### 기수\s*\n\s*(.+)/)?.[1]?.trim() ?? ''
+            const genDir = encodeURIComponent(generation)
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: `✅ 세미나 자료가 성공적으로 등록되었습니다!\n\n👉 [${generation} 아카이브에서 확인하기](../blob/main/${genDir}/README.md)`
+            })
+
+      - name: Close issue
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.update({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              state: 'closed'
+            })
+
+      - name: Comment on failure
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '❌ 세미나 자료 등록 중 오류가 발생했습니다. 이슈 내용을 확인해주세요.\n\n관리자에게 문의하거나 이슈를 다시 등록해주세요.'
+            })
