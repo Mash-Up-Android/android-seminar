@@ -10,6 +10,7 @@ body:
       description: 활동 기수를 선택해주세요
       options:
         - "16기"
+        - "17기"
       default: 0
     validations:
       required: true
