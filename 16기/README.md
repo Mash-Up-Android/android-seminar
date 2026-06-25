@@ -14,3 +14,4 @@
 | 김아린 | remember 기억력 테스트 | [MashUp 16기 세미나 _김아린.pdf](https://github.com/user-attachments/files/27169160/MashUp.16._.pdf) / [MashUp 16기 세미나 _김아린.pptx](https://github.com/user-attachments/files/27169182/MashUp.16._.pptx) / [자료 보기](https://speakerdeck.com/mashup_android/remember-gieogryeog-teseuteu?slide=9) |
 | 문설빈 | orbit mvi | [자료 보기](https://docs.google.com/presentation/d/1y0a5D7VJ0TccABi9PRtudVZVi6UDmx0x/edit?usp=drive_link&ouid=112870920787362553135&rtpof=true&sd=true) |
 | 함범준 | Ktor는 토큰을 어떻게 안전하게 관리하는가 | [Ktor는 토큰을 어떻게 안전하게 관리하는가.pptx](https://github.com/user-attachments/files/28135778/Ktor.pptx) |
+| 전계원 | Android 앱 만드는 방법 알아보기 | [자료 보기](https://docs.google.com/presentation/d/171X4nWLeA2dD4cSlMiraEXOwgzCkr41Fw7E-ZqC4tjE/edit?slide=id.g3eb8384da43_0_5#slide=id.g3eb8384da43_0_5) |
